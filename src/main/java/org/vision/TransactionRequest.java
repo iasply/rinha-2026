@@ -1,0 +1,25 @@
+package org.vision;
+
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
+import java.util.List;
+
+@JsonDeserialize(using = TransactionRequestDeserializer.class)
+public record TransactionRequest(
+        String id,
+        Transaction transaction,
+        Customer customer,
+        Merchant merchant,
+        Terminal terminal,
+        LastTransaction lastTransaction
+) {
+    public record Transaction(float amount, int installments, String requestedAt) {}
+
+    public record Customer(float avgAmount, int txCount24h, List<String> knownMerchants) {}
+
+    public record Merchant(String id, String mcc, float avgAmount) {}
+
+    public record Terminal(boolean isOnline, boolean cardPresent, float kmFromHome) {}
+
+    public record LastTransaction(float amount, int secondsAgo, float kmFromCurrent) {}
+}
