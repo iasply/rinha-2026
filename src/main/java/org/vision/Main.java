@@ -32,7 +32,8 @@ public class Main extends AbstractVerticle {
             .registerModule(new SimpleModule().addDeserializer(
                     TransactionRequest.class, new TransactionRequestDeserializer()));
     private static final AtomicBoolean READY = new AtomicBoolean(false);
-    private static FraudIndex  fraudIndex;
+    private static volatile FraudIndex fraudIndex;
+
     public static void main(String[] args) throws Exception {
         if (args.length > 0 && "build-index".equals(args[0])) {
             buildIndex();
@@ -73,7 +74,7 @@ public class Main extends AbstractVerticle {
                 .onSuccess(s -> {
                     System.out.println("Listening — instance=" + INSTANCE_ID);
                     vertx.executeBlocking(() -> {
-                        this.fraudIndex= FraudIndex.getInstance();
+                        fraudIndex = FraudIndex.getInstance();
                         return null;
                     }).onFailure(e -> System.err.println("[init] FraudIndex failed: " + e.getMessage()));
                 });
@@ -133,7 +134,9 @@ public class Main extends AbstractVerticle {
 
             vertx.executeBlocking(() -> {
                 final long tWorker = System.nanoTime();
-                return new Eval(fraudIndex.evaluate(txReq), tParsed - tBody, tWorker - tParsed);
+                FraudIndex fi = fraudIndex;
+                if (fi == null) fi = FraudIndex.getInstance();
+                return new Eval(fi.evaluate(txReq), tParsed - tBody, tWorker - tParsed);
             })
             .onSuccess(eval -> {
                 final long totalNs = System.nanoTime() - tStart;

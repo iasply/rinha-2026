@@ -1,8 +1,8 @@
 #!/bin/sh
 set -e
 
-ROUNDS=${WARMUP_ROUNDS:-5}
-CONCURRENCY=${WARMUP_CONCURRENCY:-10}
+ROUNDS=${WARMUP_ROUNDS:-10}
+CONCURRENCY=${WARMUP_CONCURRENCY:-20}
 PAYLOADS=/payloads.json
 TARGET="http://nginx/fraud-score"
 READY_1="http://api1:8080/ready"
