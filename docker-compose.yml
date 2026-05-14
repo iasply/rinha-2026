@@ -1,59 +1,39 @@
 services:
-  api1:
+  api-1: &api
     build: .
     image: rinha-hello:latest
-    container_name: api1
     environment:
-      INSTANCE_ID: api1
-      JAVA_OPTS: ""
-      WORKER_POOL_SIZE: "12"
-      EVENT_LOOP_POOL_SIZE: "1"
+      JAVA_OPTS: "-server -Xmx128m -XX:+UseSerialGC -XX:-TieredCompilation -XX:CompileThreshold=100 --enable-native-access=ALL-UNNAMED"
+      EVENT_LOOP_POOL_SIZE: "2"
+      INTERNAL_WARMUP_ROUNDS: "500"
     networks:
       - rinha-net
     deploy:
       resources:
         limits:
-          cpus: '0.4'
-          memory: '150MB'
+          cpus: "0.4"
+          memory: "155MB"
 
-  api2:
-    image: rinha-hello:latest
-    container_name: api2
-    environment:
-      INSTANCE_ID: api2
-      JAVA_OPTS: ""
-      WORKER_POOL_SIZE: "12"
-      EVENT_LOOP_POOL_SIZE: "1"
-    depends_on:
-      - api1
-    networks:
-      - rinha-net
-    deploy:
-      resources:
-        limits:
-          cpus: '0.4'
-          memory: '150MB'
+  api-2:
+    <<: *api
 
   nginx:
     image: nginx:alpine
     container_name: nginx
-    ports:
-      - "9999:80"
-    environment:
-      WARMUP_ROUNDS: "60"
-      WARMUP_CONCURRENCY: "50"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - api1
-      - api2
+      - api-1
+      - api-2
     networks:
       - rinha-net
+    ports:
+      - "9999:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
     deploy:
       resources:
         limits:
-          cpus: '0.2'
-          memory: '50MB'
+          cpus: "0.2"
+          memory: "40MB"
 
 networks:
   rinha-net:

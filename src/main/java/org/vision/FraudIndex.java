@@ -1,18 +1,27 @@
 package org.vision;
 
 import org.apache.lucene.index.DirectoryReader;
+import org.apache.lucene.index.MultiDocValues;
+import org.apache.lucene.index.NumericDocValues;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.KnnFloatVectorQuery;
+import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.store.MMapDirectory;
 
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.Comparator;
 
 public class FraudIndex {
 
-    private static final float THRESHOLD = 0.6f;
+    public static final String VECTOR = "vector";
+    public static final String FRAUD_FIELD = "fraud";
     private static final int TOP_K = 5;
-    private static final String INDEX_PATH =
-            System.getenv().getOrDefault("INDEX_PATH", "fraud-index");
+    private static final String INDEX_PATH = System.getenv().getOrDefault("INDEX_PATH", "fraud-index");
+
+    // All possible responses: fraudCount 0..TOP_K → approved = fraudCount < 3 (score < 0.6)
+    private static final String[] RESPONSES = { "{\"approved\":true,\"fraud_score\":0.0}", "{\"approved\":true,\"fraud_score\":0.2}", "{\"approved\":true,\"fraud_score\":0.4}",
+            "{\"approved\":false,\"fraud_score\":0.6}", "{\"approved\":false,\"fraud_score\":0.8}", "{\"approved\":false,\"fraud_score\":1.0}", };
 
     private static volatile FraudIndex instance;
 
@@ -35,34 +44,32 @@ public class FraudIndex {
     public static FraudIndex getInstance() {
         if (instance == null) {
             synchronized (FraudIndex.class) {
-                if (instance == null) instance = new FraudIndex();
+                if (instance == null)
+                    instance = new FraudIndex();
             }
         }
         return instance;
     }
 
-    public record FraudResult(boolean approved, float fraudScore, long vecNs, long knnNs) {}
-
-    public FraudResult evaluate(TransactionRequest req) {
+    public String evaluate(TransactionRequest req) {
         try {
-            long t0 = System.nanoTime();
             float[] vector = vectorizer.vectorize(req);
-            long t1 = System.nanoTime();
 
-            var query = new KnnFloatVectorQuery("vector", vector, TOP_K);
+            var query = new KnnFloatVectorQuery(VECTOR, vector, TOP_K);
             var topDocs = searcher.search(query, TOP_K);
-            long t2 = System.nanoTime();
 
-            var storedFields = searcher.storedFields();
-            float fraudCount = 0;
-            for (var scoreDoc : topDocs.scoreDocs) {
-                if ("fraud".equals(storedFields.document(scoreDoc.doc).get("label"))) {
+            ScoreDoc[] hits = topDocs.scoreDocs;
+            Arrays.sort(hits, Comparator.comparingInt(h -> h.doc));
+
+            NumericDocValues fraudDv = MultiDocValues.getNumericValues(searcher.getIndexReader(), FRAUD_FIELD);
+            int fraudCount = 0;
+            for (ScoreDoc hit : hits) {
+                if (fraudDv != null && fraudDv.advanceExact(hit.doc) && fraudDv.longValue() == 1L) {
                     fraudCount++;
                 }
             }
 
-            float score = fraudCount / TOP_K;
-            return new FraudResult(score < THRESHOLD, score, t1 - t0, t2 - t1);
+            return RESPONSES[fraudCount];
         } catch (Exception e) {
             System.err.println("[FraudIndex] Search failed: " + e.getMessage());
             e.printStackTrace();

@@ -1,7 +1,3 @@
 package org.vision;
 
-public record TransactionVector(
-        float[] vector,
-        String label
-) {
-}
+public record TransactionVector(float[] vector, String label) {}
