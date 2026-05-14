@@ -3,7 +3,6 @@ services:
     build: .
     image: rinha-hello:latest
     environment:
-      JAVA_OPTS: "-server -Xmx128m -XX:+UseSerialGC -XX:-TieredCompilation -XX:CompileThreshold=100 --enable-native-access=ALL-UNNAMED"
       EVENT_LOOP_POOL_SIZE: "2"
       INTERNAL_WARMUP_ROUNDS: "500"
     networks:

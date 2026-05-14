@@ -1,0 +1,10 @@
+{
+  "resources": {
+    "includes": [
+      {"pattern": "mcc_risk.json"},
+      {"pattern": "example-payloads.json"},
+      {"pattern": "META-INF/services/.*"},
+      {"pattern": "META-INF/vertx.*"}
+    ]
+  }
+}

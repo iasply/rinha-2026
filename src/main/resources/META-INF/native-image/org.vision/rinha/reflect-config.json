@@ -1,0 +1,12 @@
+[
+  {
+    "name": "org.vision.TransactionVector",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  },
+  {
+    "name": "org.vision.TransactionRequestDeserializer",
+    "allDeclaredConstructors": true,
+    "allDeclaredMethods": true
+  }
+]

@@ -9,16 +9,16 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerOptions;
 import io.vertx.core.http.HttpServerRequest;
-import io.vertx.core.json.JsonObject;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.codecs.KnnVectorsFormat;
 import org.apache.lucene.codecs.lucene104.Lucene104Codec;
 import org.apache.lucene.codecs.lucene104.Lucene104HnswScalarQuantizedVectorsFormat;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
-import org.apache.lucene.store.MMapDirectory;
+import org.apache.lucene.store.NIOFSDirectory;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -71,14 +71,14 @@ public class Main extends AbstractVerticle {
             }
         }
         long elapsedMs = (System.nanoTime() - start) / 1_000_000;
-        System.out.println("[warmup] Done: " + total + " evaluations in " + elapsedMs + "ms" + " (" + (elapsedMs > 0 ? total * 1000 / elapsedMs : "∞") + " eval/s)");
+        System.out.println("[warmup] Done: " + total + " evaluations in " + elapsedMs + "ms (" + (elapsedMs > 0 ? total * 1000 / elapsedMs : "∞") + " eval/s)");
     }
 
     private static List<TransactionRequest> loadWarmupPayloads() {
         try (var is = Main.class.getClassLoader().getResourceAsStream("example-payloads.json")) {
             if (is == null)
                 return Collections.emptyList();
-            JsonNode root = new ObjectMapper().readTree(is);
+            JsonNode root = PLAIN_MAPPER.readTree(is);
             List<TransactionRequest> list = new ArrayList<>();
             for (JsonNode node : root) {
                 list.add(READER.readValue(node.traverse()));
@@ -92,7 +92,7 @@ public class Main extends AbstractVerticle {
 
     public static void buildIndex() throws Exception {
         long start = System.nanoTime();
-        var directory = new MMapDirectory(INDEX_PATH);
+        var directory = new NIOFSDirectory(INDEX_PATH);
         var config = new IndexWriterConfig(new StandardAnalyzer());
         config.setRAMBufferSizeMB(2048);
         config.setUseCompoundFile(false);
@@ -116,12 +116,14 @@ public class Main extends AbstractVerticle {
 
     @Override
     public void start() {
-        vertx.createHttpServer(new HttpServerOptions().setPort(PORT).setTcpNoDelay(true).setReusePort(true).setAcceptBacklog(1024)).requestHandler(this::handle).listen(PORT).onSuccess(s -> {
-            System.out.println("Listening — instance=" + INSTANCE_ID);
-            if (INTERNAL_WARMUP_ROUNDS > 0) {
-                READY.set(true);
-            }
-        }).onFailure(Throwable::printStackTrace);
+        vertx.createHttpServer(new HttpServerOptions().setPort(PORT).setTcpNoDelay(true).setReusePort(true).setAcceptBacklog(1024))
+                .requestHandler(this::handle)
+                .listen(PORT)
+                .onSuccess(s -> {
+                    READY.set(true);
+                    System.out.println("Listening — instance=" + INSTANCE_ID);
+                })
+                .onFailure(Throwable::printStackTrace);
     }
 
     private void handle(HttpServerRequest req) {
@@ -129,10 +131,11 @@ public class Main extends AbstractVerticle {
         var response = req.response();
 
         if ("/ready".equals(path)) {
-            response.setStatusCode(READY.get() ? 200 : 503).end(READY.get() ? "{\"status\":\"ready\"}" : "{\"status\":\"warming-up\"}");
+            boolean ready = READY.get();
+            response.setStatusCode(ready ? 200 : 503).end(ready ? "{\"status\":\"ready\"}" : "{\"status\":\"warming-up\"}");
             return;
         }
-        if ("/fraud-score".equals(path) && "POST".equals(req.method().name())) {
+        if ("/fraud-score".equals(path) && req.method() == HttpMethod.POST) {
             handleFraudScore(req);
             return;
         }
