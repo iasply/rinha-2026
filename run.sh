@@ -5,9 +5,9 @@ RINHA_REPO="${RINHA_REPO:-/d/rinha-de-backend-2026}"
 
 docker compose down --remove-orphans
 
-docker rmi -f iuryasilva/rinha-2026:graal || true
+docker rmi -f iuryasilva/rinha-2026:latest || true
 
-docker build -t iuryasilva/rinha-2026:graal .
+docker build -t iuryasilva/rinha-2026:latest .
 
 docker compose up -d
 
