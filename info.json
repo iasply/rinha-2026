@@ -5,6 +5,6 @@
     "https://www.linkedin.com/in/iury-amorim-81835328a/"
   ],
   "source-code-repo": "https://github.com/iasply/rinha-2026",
-  "stack": ["Java 25", "GraalVM JIT", "Apache Lucene 10", "Vert.x 5", "HNSW", "MMapDirectory"],
+  "stack": ["Java 25", "Eclipse Temurin", "Apache Lucene 10", "Vert.x 5", "HNSW", "MMapDirectory"],
   "open_to_work": true
 }
