@@ -6,7 +6,7 @@ RUN mvn dependency:resolve -q
 COPY src ./src
 RUN mvn clean package -DskipTests -q
 
-FROM eclipse-temurin:25-jre-alpine
+FROM ghcr.io/graalvm/jdk-community:25
 
 WORKDIR /app
 COPY --from=builder /app/target/hello.jar .
