@@ -21,8 +21,8 @@ import org.apache.lucene.store.MMapDirectory;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class Main extends AbstractVerticle {
@@ -52,11 +52,7 @@ public class Main extends AbstractVerticle {
     }
 
     private static void runInternalWarmup(FraudIndex fi) {
-        List<TransactionRequest> payloads = loadWarmupPayloads();
-        if (payloads.isEmpty()) {
-            System.out.println("[warmup] No payloads found, skipping internal warmup");
-            return;
-        }
+        List<TransactionRequest> payloads = generateWarmupPayloads(64);
         int total = payloads.size() * INTERNAL_WARMUP_ROUNDS;
         System.out.println("[warmup] Starting: " + payloads.size() + " payloads x " + INTERNAL_WARMUP_ROUNDS + " rounds = " + total + " evaluations");
         long start = System.nanoTime();
@@ -69,20 +65,32 @@ public class Main extends AbstractVerticle {
         System.out.println("[warmup] Done: " + total + " evaluations in " + elapsedMs + "ms (" + (elapsedMs > 0 ? total * 1000 / elapsedMs : "∞") + " eval/s)");
     }
 
-    private static List<TransactionRequest> loadWarmupPayloads() {
-        try (var is = Main.class.getClassLoader().getResourceAsStream("example-payloads.json")) {
-            if (is == null)
-                return Collections.emptyList();
-            JsonNode root = PLAIN_MAPPER.readTree(is);
-            List<TransactionRequest> list = new ArrayList<>();
-            for (JsonNode node : root) {
-                list.add(READER.readValue(node.traverse()));
-            }
-            return list;
-        } catch (Exception e) {
-            System.err.println("[warmup] Failed to load payloads: " + e.getMessage());
-            return Collections.emptyList();
+    private static List<TransactionRequest> generateWarmupPayloads(int n) {
+        List<TransactionRequest> list = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            float amount        = 10f + (i * 137.5f % 9990f);
+            int installments    = (i % 12) + 1;
+            int hour            = i % 24;
+            int dayOfWeek       = i % 7;
+            long epoch          = 1_700_000_000L + (long) i * 3600;
+            float avgAmount     = amount * 0.8f + (i % 5) * 50f;
+            int txCount24h      = i % 30;
+            String mid          = "merchant-" + (i % 20);
+            String mcc          = String.format("%04d", (i * 17) % 9999 + 1);
+            float merchantAvg   = 50f + (i * 73f % 500f);
+            float kmFromHome    = i * 7.3f % 200f;
+            TransactionRequest.LastTransaction lastTx = (i % 4 == 0) ? null
+                    : new TransactionRequest.LastTransaction(i * 60 % 86400, i * 1.5f % 50f);
+            list.add(new TransactionRequest(
+                    "warmup-" + i,
+                    new TransactionRequest.Transaction(amount, installments, hour, dayOfWeek, epoch),
+                    new TransactionRequest.Customer(avgAmount, txCount24h, Set.of("merchant-" + (i % 10), "merchant-" + ((i + 3) % 10))),
+                    new TransactionRequest.Merchant(mid, mcc, merchantAvg),
+                    new TransactionRequest.Terminal((i % 2) == 0, (i % 3) != 0, kmFromHome),
+                    lastTx
+            ));
         }
+        return list;
     }
 
     public static void buildIndex() throws Exception {
