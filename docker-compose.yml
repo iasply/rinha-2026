@@ -1,7 +1,7 @@
 services:
   api-1: &api
     build: .
-    image: iuryasilva/rinha-2026:latest
+    image: iuryasilva/rinha-2026:graal
     environment:
       EVENT_LOOP_POOL_SIZE: "2"
       INTERNAL_WARMUP_ROUNDS: "500"
